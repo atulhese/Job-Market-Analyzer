@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | SkillPulse Job Intelligence{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 class="page-title">Market Intelligence Overview</h1>
+        <p class="page-desc">
+            Real-time data mining on tech hiring demand, extracted technical skills, and compensation distributions.
+        </p>
+    </div>
+
+    <div class="select-group">
+        <label style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 0.25rem;">Filter by Role Focus</label>
+        <select id="dashboard-role-filter">
+            <option value="All">All Tech Roles</option>
+            {% for r in target_roles %}
+                <option value="{{ r }}">{{ r }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- KPI Metrics Grid -->
+<div class="kpi-grid">
+    <div class="card kpi-card">
+        <div class="kpi-icon indigo">💼</div>
+        <div class="kpi-info">
+            <span class="kpi-label">Active Jobs Analyzed</span>
+            <span class="kpi-value">{{ overview.total_jobs }}</span>
+            <span class="kpi-badge">Parsed via NLP</span>
+        </div>
+    </div>
+
+    <div class="card kpi-card">
+        <div class="kpi-icon cyan">🎯</div>
+        <div class="kpi-info">
+            <span class="kpi-label">Unique Skills Tracked</span>
+            <span class="kpi-value">{{ overview.unique_skills }}</span>
+            <span class="kpi-badge">Categorized</span>
+        </div>
+    </div>
+
+    <div class="card kpi-card">
+        <div class="kpi-icon emerald">💵</div>
+        <div class="kpi-info">
+            <span class="kpi-label">Avg Market Salary</span>
+            <span class="kpi-value">${{ "{:,}".format(overview.avg_market_salary) }}</span>
+            <span class="kpi-badge">Annual USD</span>
+        </div>
+    </div>
+
+    <div class="card kpi-card">
+        <div class="kpi-icon amber">🌐</div>
+        <div class="kpi-info">
+            <span class="kpi-label">Remote Share</span>
+            <span class="kpi-value">{{ overview.remote_pct }}%</span>
+            <span class="kpi-badge">Global Work</span>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="charts-grid">
+    <!-- Chart 1: Top In-Demand Tech Skills -->
+    <div class="card col-8">
+        <div class="chart-header">
+            <div class="chart-title">
+                <span>🔥</span> Top Most In-Demand Skills
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">% of postings</span>
+        </div>
+        <div class="chart-canvas-container">
+            <canvas id="topSkillsChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Chart 2: Work Mode Distribution -->
+    <div class="card col-4">
+        <div class="chart-header">
+            <div class="chart-title">
+                <span>🌍</span> Work Mode Share
+            </div>
+        </div>
+        <div class="chart-canvas-container">
+            <canvas id="workModeChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Chart 3: Highest Paying Skills vs Market Average -->
+    <div class="card col-8">
+        <div class="chart-header">
+            <div class="chart-title">
+                <span>💎</span> Highest Paying Technical Skills
+            </div>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Mean Annual Salary</span>
+        </div>
+        <div class="chart-canvas-container">
+            <canvas id="salaryComparisonChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Chart 4: Experience Level Salary Curve -->
+    <div class="card col-4">
+        <div class="chart-header">
+            <div class="chart-title">
+                <span>📈</span> Experience vs Salary
+            </div>
+        </div>
+        <div class="chart-canvas-container">
+            <canvas id="experienceSalaryChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- High-Paying Skills Spotlight & Quick CTA Banner -->
+<div class="charts-grid">
+    <div class="card col-7">
+        <div class="chart-header">
+            <div class="chart-title">
+                <span>⭐</span> High-Value Skill Premiums
+            </div>
+            <a href="{{ url_for('skills') }}" style="font-size: 0.8rem; color: var(--accent-secondary); text-decoration: none; font-weight: 600;">View All Skills →</a>
+        </div>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Skill</th>
+                        <th>Job Mentions</th>
+                        <th>Avg Annual Salary</th>
+                        <th>Premium vs Market</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in salary_leaders %}
+                    <tr>
+                        <td>
+                            <strong style="color: #fff;">{{ item.skill }}</strong>
+                        </td>
+                        <td>{{ item.job_count }} postings</td>
+                        <td class="salary-tag">${{ "{:,}".format(item.avg_salary) }}</td>
+                        <td>
+                            {% if item.salary_premium_pct >= 0 %}
+                                <span style="color: var(--accent-success); font-weight: 700; font-size: 0.8rem;">+{{ item.salary_premium_pct }}%</span>
+                            {% else %}
+                                <span style="color: var(--accent-danger); font-weight: 700; font-size: 0.8rem;">{{ item.salary_premium_pct }}%</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recommender Call to Action Card -->
+    <div class="card col-5" style="display: flex; flex-direction: column; justify-content: space-between; background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(6, 182, 212, 0.12)); border-color: rgba(99, 102, 241, 0.35);">
+        <div>
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🚀</div>
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">
+                Are Your Skills Aligned with Market Demand?
+            </h3>
+            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 1.25rem;">
+                Paste your skills or current resume to calculate your <strong>Match Score %</strong> against actual hiring requirements for roles like <em>Full Stack Developer</em>, <em>ML Engineer</em>, or <em>Backend Developer</em>.
+            </p>
+            <ul style="font-size: 0.825rem; color: var(--text-main); list-style: none; space-y: 0.4rem; margin-bottom: 1.5rem;">
+                <li>✓ Identify high-ROI missing technical skills</li>
+                <li>✓ Uncover estimated salary compensation boost</li>
+                <li>✓ Get a personalized 4-week step-by-step roadmap</li>
+            </ul>
+        </div>
+
+        <a href="{{ url_for('recommender') }}" class="btn btn-primary" style="width: 100%; text-align: center;">
+            Run Career Skill Gap Analysis →
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

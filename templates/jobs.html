@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Jobs Explorer | SkillPulse Job Intelligence{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Tech Job Listings Explorer</h1>
+    <p class="page-desc">
+        Browse, filter, and inspect collected job postings with automated NLP skill tagging and salary standardization.
+    </p>
+</div>
+
+<!-- Search and Filter Bar -->
+<form method="GET" action="{{ url_for('jobs') }}" class="filter-bar">
+    <!-- Search Query -->
+    <div class="search-input-group">
+        <span>🔍</span>
+        <input 
+            type="text" 
+            name="q" 
+            value="{{ search_query }}" 
+            placeholder="Search by title, company, or keyword..."
+        >
+    </div>
+
+    <!-- Role Filter -->
+    <div class="select-group">
+        <select name="role" onchange="this.form.submit()">
+            <option value="All" {% if role_filter == 'All' %}selected{% endif %}>All Roles</option>
+            {% for r in target_roles %}
+                <option value="{{ r }}" {% if role_filter == r %}selected{% endif %}>{{ r }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Work Mode Filter -->
+    <div class="select-group">
+        <select name="mode" onchange="this.form.submit()">
+            <option value="All" {% if mode_filter == 'All' %}selected{% endif %}>All Work Modes</option>
+            <option value="Remote" {% if mode_filter == 'Remote' %}selected{% endif %}>Remote</option>
+            <option value="Hybrid" {% if mode_filter == 'Hybrid' %}selected{% endif %}>Hybrid</option>
+            <option value="Onsite" {% if mode_filter == 'Onsite' %}selected{% endif %}>Onsite</option>
+        </select>
+    </div>
+
+    <!-- Skill Filter -->
+    <div class="select-group">
+        <select name="skill" onchange="this.form.submit()">
+            <option value="All" {% if skill_filter == 'All' %}selected{% endif %}>Filter by Skill</option>
+            {% for s in all_skills %}
+                <option value="{{ s }}" {% if skill_filter == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+        <button type="submit" class="btn btn-primary" style="padding: 0.45rem 1rem;">Filter</button>
+        {% if search_query or role_filter != 'All' or mode_filter != 'All' or skill_filter != 'All' %}
+            <a href="{{ url_for('jobs') }}" class="btn btn-secondary" style="padding: 0.45rem 0.85rem;">Reset</a>
+        {% endif %}
+    </div>
+</form>
+
+<!-- Jobs Table Card -->
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <span style="font-size: 0.85rem; color: var(--text-muted);">
+            Showing <strong>{{ jobs|length }}</strong> of <strong>{{ total_jobs }}</strong> postings
+        </span>
+        <span style="font-size: 0.75rem; color: var(--text-dim);">Page {{ page }} of {{ total_pages }}</span>
+    </div>
+
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Position & Company</th>
+                    <th>Role & Mode</th>
+                    <th>Experience</th>
+                    <th>Compensation</th>
+                    <th>Extracted Tech Skills</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in jobs %}
+                <tr>
+                    <td>
+                        <span class="job-title-cell">{{ job.title }}</span>
+                        <span class="job-company-cell">{{ job.company }} • {{ job.location }}</span>
+                    </td>
+                    <td>
+                        <div style="font-weight: 600; color: #fff; font-size: 0.825rem;">{{ job.role_category }}</div>
+                        <span style="font-size: 0.75rem; padding: 0.15rem 0.45rem; border-radius: 0.35rem; display: inline-block; margin-top: 0.2rem;
+                            {% if job.work_mode == 'Remote' %}background: rgba(16, 185, 129, 0.15); color: #34d399;
+                            {% elif job.work_mode == 'Hybrid' %}background: rgba(99, 102, 241, 0.15); color: #818cf8;
+                            {% else %}background: rgba(245, 158, 11, 0.15); color: #fbbf24;{% endif %}">
+                            {{ job.work_mode }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+                            {{ job.experience_level }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if job.avg_salary %}
+                            <span class="salary-tag">${{ "{:,}".format(job.avg_salary|int) }}</span>
+                            <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">/ year avg</span>
+                        {% else %}
+                            <span style="color: var(--text-dim); font-size: 0.8rem;">Competitive</span>
+                        {% endif %}
+                    </td>
+                    <td style="max-width: 320px;">
+                        {% for s in job.skills[:5] %}
+                            <span class="skill-badge">{{ s }}</span>
+                        {% endfor %}
+                        {% if job.skills|length > 5 %}
+                            <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600;">+{{ job.skills|length - 5 }} more</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button 
+                            type="button" 
+                            class="btn btn-secondary" 
+                            style="padding: 0.35rem 0.75rem; font-size: 0.75rem;"
+                            onclick="openJobModal({{ job|tojson|forceescape }})"
+                        >
+                            View JD
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+                        No job postings matched your filters. Try resetting the search or trigger the live scraper!
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Controls -->
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        <div>
+            {% if page > 1 %}
+                <a href="{{ url_for('jobs', page=page-1, q=search_query, role=role_filter, mode=mode_filter, skill=skill_filter) }}" class="page-btn">← Previous</a>
+            {% else %}
+                <span class="page-btn disabled">← Previous</span>
+            {% endif %}
+        </div>
+
+        <span style="font-size: 0.8rem; color: var(--text-muted);">
+            Page {{ page }} of {{ total_pages }}
+        </span>
+
+        <div>
+            {% if page < total_pages %}
+                <a href="{{ url_for('jobs', page=page+1, q=search_query, role=role_filter, mode=mode_filter, skill=skill_filter) }}" class="page-btn">Next →</a>
+            {% else %}
+                <span class="page-btn disabled">Next →</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Dialog for Job Description Inspection -->
+<div id="jobModal" style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); z-index: 100; align-items: center; justify-content: center; padding: 1.5rem;">
+    <div class="card" style="width: 100%; max-width: 680px; max-height: 85vh; overflow-y: auto; position: relative;">
+        <button onclick="closeJobModal()" style="position: absolute; top: 1.25rem; right: 1.25rem; background: rgba(255, 255, 255, 0.08); border: none; color: #fff; width: 2rem; height: 2rem; border-radius: 50%; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center;">✕</button>
+        
+        <div id="modalContent"></div>
+    </div>
+</div>
+
+<script>
+function openJobModal(job) {
+    const modal = document.getElementById('jobModal');
+    const content = document.getElementById('modalContent');
+
+    const skillsBadges = job.skills.map(s => `<span class="skill-badge">${s}</span>`).join(' ');
+
+    content.innerHTML = `
+        <div style="margin-bottom: 1.25rem;">
+            <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--accent-secondary); font-weight: 700;">${job.role_category} • ${job.work_mode}</span>
+            <h2 style="font-size: 1.5rem; font-weight: 800; color: #fff; margin: 0.2rem 0;">${job.title}</h2>
+            <div style="font-size: 0.9rem; color: var(--text-muted);">${job.company} • ${job.location}</div>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; background: rgba(0, 0, 0, 0.35); padding: 0.75rem 1rem; border-radius: 0.65rem;">
+            <div>
+                <span style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; display: block;">Experience</span>
+                <strong style="color: #fff; font-size: 0.85rem;">${job.experience_level}</strong>
+            </div>
+            <div>
+                <span style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; display: block;">Annual Compensation</span>
+                <strong style="color: var(--accent-success); font-family: monospace; font-size: 0.95rem;">${job.avg_salary ? '$' + job.avg_salary.toLocaleString() : 'Undisclosed'}</strong>
+            </div>
+            <div>
+                <span style="font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; display: block;">Source</span>
+                <strong style="color: #fff; font-size: 0.85rem;">${job.source}</strong>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+            <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">Extracted Technical Skills (${job.skills.length})</h4>
+            <div>${skillsBadges || '<span style="color: var(--text-dim);">No specific skills detected</span>'}</div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+            <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">Full Job Description</h4>
+            <div style="font-size: 0.875rem; color: var(--text-main); line-height: 1.7; white-space: pre-line; background: rgba(0, 0, 0, 0.2); padding: 1rem; border-radius: 0.65rem; border: 1px solid var(--border-color);">
+                ${job.description}
+            </div>
+        </div>
+
+        ${job.url ? `<a href="${job.url}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="width: 100%;">View Original Job Listing ↗</a>` : ''}
+    `;
+
+    modal.style.display = 'flex';
+}
+
+function closeJobModal() {
+    document.getElementById('jobModal').style.display = 'none';
+}
+</script>
+{% endblock %}

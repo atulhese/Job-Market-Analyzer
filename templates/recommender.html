@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Skill Gap & Career Recommender | SkillPulse Intelligence{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Skill Gap & Career Roadmap Recommender</h1>
+    <p class="page-desc">
+        Evaluate your current technical stack against live market requirements. Uncover missing high-paying skills, estimated salary uplifts, and a 4-week actionable study plan.
+    </p>
+</div>
+
+<!-- Quick Presets -->
+<div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+    <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700;">Try Sample Profiles:</span>
+    <button type="button" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="loadProfilePreset('python-backend')">
+        🐍 Junior Python Dev
+    </button>
+    <button type="button" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="loadProfilePreset('mern-fullstack')">
+        ⚛️ MERN Stack Dev
+    </button>
+    <button type="button" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="loadProfilePreset('aspiring-ml')">
+        🤖 Aspiring ML / LLM Engineer
+    </button>
+    <button type="button" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" onclick="loadProfilePreset('devops-junior')">
+        ☁️ DevOps Starter
+    </button>
+</div>
+
+<div class="recommender-grid">
+    <!-- Left: Input Form -->
+    <div class="card">
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 1.25rem;">
+            Candidate Profile & Target Role
+        </h3>
+
+        <form method="POST" action="{{ url_for('recommender') }}">
+            <!-- Your Skills -->
+            <div class="form-group">
+                <label for="user_skills">Your Current Skills (Comma Separated)</label>
+                <input 
+                    type="text" 
+                    id="user_skills" 
+                    name="user_skills" 
+                    class="form-control"
+                    value="{{ initial_skills }}"
+                    placeholder="e.g. Python, Flask, SQL, Git, JavaScript"
+                >
+                <span style="font-size: 0.7rem; color: var(--text-dim); display: block; margin-top: 0.25rem;">
+                    Skills like Python, Django, SQL, ML, Docker, React, etc.
+                </span>
+            </div>
+
+            <!-- Target Dream Role -->
+            <div class="form-group">
+                <label for="target_role">Target Dream Role</label>
+                <select id="target_role" name="target_role" class="form-control">
+                    {% for r in target_roles %}
+                        <option value="{{ r }}" {% if initial_role == r %}selected{% endif %}>{{ r }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Optional: Paste Resume -->
+            <div class="form-group">
+                <label for="resume_text">Or Paste Resume / Experience Summary (Optional)</label>
+                <textarea 
+                    id="resume_text" 
+                    name="resume_text" 
+                    rows="3" 
+                    class="form-control"
+                    placeholder="Paste a summary of your experience or resume text here..."
+                >{{ initial_resume }}</textarea>
+            </div>
+
+            <!-- Optional: Paste Specific Job Description -->
+            <div class="form-group">
+                <label for="custom_jd">Or Target a Specific Job Description (Optional)</label>
+                <textarea 
+                    id="custom_jd" 
+                    name="custom_jd" 
+                    rows="3" 
+                    class="form-control"
+                    placeholder="Paste an exact job description you want to benchmark against..."
+                >{{ initial_jd }}</textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                ⚡ Run Intelligent Skill Gap Analysis
+            </button>
+        </form>
+    </div>
+
+    <!-- Right: Recommendations & Results -->
+    <div>
+        {% if result %}
+            <!-- Score Card -->
+            <div class="score-card">
+                <div class="score-circle">
+                    {{ result.match_score }}%
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--accent-secondary); font-weight: 700;">Market Alignment</span>
+                    <h3 style="font-size: 1.35rem; font-weight: 800; color: #fff; margin: 0.2rem 0;">
+                        {{ result.target_title }} Profile Match
+                    </h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">
+                        You match <strong>{{ result.matched_skills|length }}</strong> of <strong>{{ result.total_market_required }}</strong> high-demand skills for this role.
+                    </p>
+                    {% if result.estimated_salary_boost > 0 %}
+                        <div style="margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.25rem 0.75rem; border-radius: 0.5rem; font-size: 0.8rem; font-weight: 700; color: #34d399;">
+                            💰 Potential Compensation Uplift: +${{ "{:,}".format(result.estimated_salary_boost) }} / year
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Skills You Have -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--accent-success); font-weight: 700; margin-bottom: 0.75rem;">
+                    ✓ Skills You Already Have ({{ result.matched_skills|length }})
+                </h4>
+                <div>
+                    {% for s in result.matched_skills %}
+                        <span class="skill-badge" style="background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.3); color: #6ee7b7;">
+                            ✓ {{ s }}
+                        </span>
+                    {% else %}
+                        <span style="font-size: 0.85rem; color: var(--text-dim);">No overlapping skills matched yet.</span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- High-ROI Missing Skills -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--accent-warning); font-weight: 700; margin-bottom: 0.75rem;">
+                    ⚠️ High-Value Missing Skills (Ranked by Market Demand)
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 0.65rem;">
+                    {% for m in result.missing_skills %}
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.3); padding: 0.6rem 0.85rem; border-radius: 0.5rem; border: 1px solid var(--border-color);">
+                        <div>
+                            <strong style="color: #fff; font-size: 0.9rem;">+ {{ m.skill }}</strong>
+                            <span class="skill-badge badge-{{ m.category|lower|replace(' ', '')|replace('&', '') }}" style="font-size: 0.65rem;">{{ m.category }}</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="salary-tag">${{ "{:,}".format(m.avg_salary) }}</span>
+                            <span style="font-size: 0.7rem; color: var(--text-dim); display: block;">{{ m.demand_frequency }} postings</span>
+                        </div>
+                    </div>
+                    {% else %}
+                        <span style="font-size: 0.85rem; color: var(--accent-success);">Congratulations! You possess 100% of the key core skills for this role.</span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Personalized 4-Week Roadmap -->
+            <div class="card">
+                <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--accent-secondary); font-weight: 700; margin-bottom: 0.5rem;">
+                    🗺️ Personalized 4-Week Upskilling Roadmap
+                </h4>
+                <div class="roadmap-timeline">
+                    {% for step in result.roadmap %}
+                    <div class="roadmap-step">
+                        <div class="roadmap-week">{{ step.week }}</div>
+                        <div class="roadmap-phase">{{ step.phase }}</div>
+                        <div class="roadmap-desc">{{ step.objective }}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-main); font-weight: 600; margin-top: 0.35rem; display: flex; align-items: center; gap: 0.3rem;">
+                            <span style="color: var(--accent-secondary);">🎯 Deliverable:</span> {{ step.deliverable }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% else %}
+            <!-- Initial Empty State -->
+            <div class="card" style="text-align: center; padding: 4rem 2rem;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+                <h3 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">
+                    Ready to Analyze Your Skill Gap
+                </h3>
+                <p style="font-size: 0.875rem; color: var(--text-muted); max-width: 24rem; margin: 0 auto;">
+                    Select a preset above or type in your skills on the left to see your personalized hiring match score and career roadmap.
+                </p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/recommender.js') }}"></script>
+{% endblock %}

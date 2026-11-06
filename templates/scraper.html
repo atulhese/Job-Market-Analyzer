@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Data Pipeline & Scraper | SkillPulse Intelligence{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Data Pipeline & Scraper Control Center</h1>
+    <p class="page-desc">
+        Trigger live job collection via permitted APIs and web scraping feeds. Monitor real-time ETL cleaning and NLP skill extraction.
+    </p>
+</div>
+
+<div class="charts-grid">
+    <!-- Left: Scraper Trigger Form -->
+    <div class="card col-5">
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 1.25rem;">
+            <span>⚡</span> Trigger Live Job Ingestion
+        </h3>
+
+        <form method="POST" action="{{ url_for('api_trigger_scrape') }}">
+            <div class="form-group">
+                <label for="source_type">Select Data Source</label>
+                <select id="source_type" name="source_type" class="form-control">
+                    <option value="stream">Live Developer Market Stream (Instant / Diverse)</option>
+                    <option value="remoteok">RemoteOK Public API (Remote Tech)</option>
+                    <option value="arbeitnow">Arbeitnow Developer API (Global Tech)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="count">Batch Ingestion Volume</label>
+                <select id="count" name="count" class="form-control">
+                    <option value="10">10 Job Postings</option>
+                    <option value="20" selected>20 Job Postings</option>
+                    <option value="35">35 Job Postings</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+                🔄 Start Data Extraction & Pipeline
+            </button>
+        </form>
+
+        <div style="margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted);">
+            <strong style="color: #fff; display: block; margin-bottom: 0.25rem;">Automated ETL Process:</strong>
+            <ol style="margin-left: 1.2rem; line-height: 1.6;">
+                <li>Fetch raw JSON/HTML listings</li>
+                <li>Clean text via BeautifulSoup & Regex</li>
+                <li>Extract technical skills via NLP taxonomy</li>
+                <li>Standardize and impute compensation with Pandas</li>
+                <li>Deduplicate & commit to SQLite database</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Right: Pipeline Metrics & Recent Feed -->
+    <div class="card col-7">
+        <div class="chart-header">
+            <div class="chart-title">
+                <span>📊</span> Pipeline Storage & Health
+            </div>
+            <span style="font-size: 0.75rem; color: var(--accent-success); font-weight: 700;">● Active</span>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 1.5rem;">
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 0.65rem; border: 1px solid var(--border-color);">
+                <span class="kpi-label">Total Jobs in Database</span>
+                <span class="kpi-value" style="font-size: 1.5rem;">{{ total_jobs }}</span>
+            </div>
+            <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 0.65rem; border: 1px solid var(--border-color);">
+                <span class="kpi-label">Unique Skills Indexed</span>
+                <span class="kpi-value" style="font-size: 1.5rem;">{{ total_skills }}</span>
+            </div>
+        </div>
+
+        <h4 style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 0.75rem;">
+            Recently Ingested Postings
+        </h4>
+
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Job Title</th>
+                        <th>Source</th>
+                        <th>Skills Tagged</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for j in recent_jobs %}
+                    <tr>
+                        <td>
+                            <strong style="color: #fff; font-size: 0.85rem;">{{ j.title }}</strong>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">{{ j.company }} • {{ j.location }}</div>
+                        </td>
+                        <td>
+                            <span style="font-size: 0.75rem; color: var(--accent-secondary); font-weight: 600;">{{ j.source }}</span>
+                        </td>
+                        <td>
+                            {% for s in j.skills[:3] %}
+                                <span class="skill-badge" style="font-size: 0.7rem;">{{ s }}</span>
+                            {% endfor %}
+                            {% if j.skills|length > 3 %}
+                                <span style="font-size: 0.7rem; color: var(--text-muted);">+{{ j.skills|length - 3 }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3" style="text-align: center; color: var(--text-dim); padding: 1.5rem;">No postings recorded yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
