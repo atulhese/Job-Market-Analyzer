@@ -10,12 +10,33 @@ from nlp.recommender import skill_recommender
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Initialize database schema and initial seed data upon startup
+# Initialize database schema and initial seed data safely upon startup
+def initialize_app_data():
+    """Safely seeds initial database if empty and loads analytics engine."""
+    try:
+        init_db()
+        session = SessionLocal()
+        job_count = session.query(Job).count()
+        session.close()
+        if job_count == 0:
+            print("[Startup] Database is empty. Seeding initial job data...")
+            job_collector.seed_initial_data()
+        data_pipeline.load_and_clean_data()
+        print(f"[Startup] Ready. Loaded {len(data_pipeline.df) if data_pipeline.df is not None else 0} jobs into memory.")
+    except Exception as e:
+        print(f"[Startup Warning] Initialization error: {e}")
+
 with app.app_context():
-    init_db()
-    seed_result = job_collector.seed_initial_data()
-    data_pipeline.load_and_clean_data()
-    print("Database and analytics pipeline initialized.")
+    initialize_app_data()
+
+@app.route('/health')
+def health():
+    """Instant health check for Render / monitoring services."""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'Job Market Intelligence Platform',
+        'jobs_count': len(data_pipeline.df) if data_pipeline.df is not None else 0
+    }), 200
 
 @app.context_processor
 def inject_global_data():

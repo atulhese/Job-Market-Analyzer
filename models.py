@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Float, Text, DateTime, ForeignKey, Table
+from sqlalchemy import create_engine, Column, Integer, String, Float, Text, DateTime, ForeignKey, Table, event
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from config import Config
 
@@ -77,7 +77,31 @@ class Skill(Base):
         }
 
 # Database engine and session factory
-engine = create_engine(Config.SQLALCHEMY_DATABASE_URI, echo=False)
+connect_args = {}
+if Config.SQLALCHEMY_DATABASE_URI.startswith('sqlite'):
+    connect_args = {
+        'timeout': 30,
+        'check_same_thread': False
+    }
+
+engine = create_engine(
+    Config.SQLALCHEMY_DATABASE_URI,
+    echo=False,
+    connect_args=connect_args
+)
+
+if Config.SQLALCHEMY_DATABASE_URI.startswith('sqlite'):
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.execute("PRAGMA synchronous=NORMAL;")
+        except Exception:
+            pass
+        finally:
+            cursor.close()
+
 SessionLocal = sessionmaker(bind=engine)
 
 def init_db():

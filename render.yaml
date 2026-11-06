@@ -3,7 +3,10 @@ services:
     name: job-market-analyzer
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn -b 0.0.0.0:$PORT app:app
+    startCommand: gunicorn -c gunicorn.conf.py app:app
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.8
+      - key: FLASK_DEBUG
+        value: "false"
